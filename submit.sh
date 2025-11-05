@@ -19,7 +19,8 @@ module load cuda/12.1
 # source ~/venvs/torch/bin/activate
 
 # Move to your working directory
-cd $SLURM_SUBMIT_DIR
+cd ~/02516/IDLCV_Project3_Segmentation
+
 
 # Run the training
 python3 train.py \
