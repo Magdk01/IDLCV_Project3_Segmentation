@@ -20,11 +20,20 @@ source ~/02516/IDLCV_Project3_Segmentation/venv/bin/activate
 # Move to your working directory
 cd ~/02516/IDLCV_Project3_Segmentation
 
-# --- Model selection: unet or simple ---
-MODEL=${1:-unet}
-
+echo "[INFO] Starting SimpleEncoder training..."
 python3 train.py \
-  --model $MODEL \
+  --model simple \
+  --epochs 25 \
+  --batch-size 2 \
+  --img-size 256 \
+  --lr 1e-4 \
+  --loss wbce \
+  --pos-weight 3.0 \
+  --output-dir ./hpc_outputs
+
+echo "[INFO] Starting UNet training..."
+python3 train.py \
+  --model unet \
   --epochs 25 \
   --batch-size 2 \
   --img-size 256 \
