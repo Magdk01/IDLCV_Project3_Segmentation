@@ -25,7 +25,7 @@ def train_model(args):
     if args.model == "simple":
         model = SimpleEncoderDecoder(in_channels=3, out_channels=1).to(device)
     else:
-        model = UNet(in_channels=3, out_channels=1).to(device)
+        model = UNet(in_channels=3, n_channels=1).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
@@ -105,14 +105,15 @@ def train_model(args):
             epoch_metrics[k].append(value)
             print(f"  {k}: {value:.4f}")
 
-        # --- Save checkpoint each epoch ---
-        torch.save(model.state_dict(),
-                   os.path.join(args.output_dir, f"{args.model}_epoch{epoch+1}.pth"))
-
+    # --- Save checkpoint each epoch ---
+    torch.save(model.state_dict(),
+                os.path.join(args.output_dir, f"{args.model}_model.pth"))
     # --- Save metric curves ---
     plt.figure(figsize=(8, 6))
     for k, values in epoch_metrics.items():
-        plt.plot(range(1, args.epochs+1), values, marker='o', label=k)
+        # Convert torch tensors to floats if necessary
+        values_cpu = [v.item() if torch.is_tensor(v) else v for v in values]
+        plt.plot(range(1, args.epochs + 1), values_cpu, marker='o', label=k)
     plt.title(f"Metrics per Epoch ({args.model}, {args.loss})")
     plt.xlabel("Epoch")
     plt.ylabel("Score")
@@ -122,7 +123,6 @@ def train_model(args):
     plot_path = os.path.join(args.output_dir, f"metrics_curve_{args.model}_{args.loss}.png")
     plt.savefig(plot_path)
     plt.close()
-    print(f"[INFO] Saved metrics plot → {plot_path}")
 
     # --- Save final averaged metrics ---
     results_path = os.path.join(args.output_dir, f"results_{args.model}_{args.loss}.txt")
