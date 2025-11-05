@@ -86,34 +86,36 @@ def train_model(args):
         epoch_losses.append(avg_loss)
         print(f"Epoch {epoch+1}/{args.epochs} - Loss: {avg_loss:.4f}")
 
-        # --- Evaluation phase per epoch ---
+                # --- Evaluation phase per epoch ---
         model.eval()
         metrics_sum = {k: 0.0 for k in epoch_metrics.keys()}
-        num_samples = 0
+        num_batches = 0
 
         with torch.no_grad():
             for imgs, masks in test_loader:
                 imgs, masks = imgs.to(device), masks.to(device)
                 preds = torch.sigmoid(model(imgs))
 
-                # Threshold predictions for binary segmentation
-                preds_bin = (preds > 0.5).float()
+                # Compute batch metrics (your metric functions handle thresholding)
+                batch_metrics = {
+                    "dice": dice_coeff(preds, masks).item(),
+                    "iou": iou(preds, masks).item(),
+                    "acc": accuracy(preds, masks).item(),
+                    "sens": sensitivity(preds, masks).item(),
+                    "spec": specificity(preds, masks).item(),
+                }
 
-                batch_size = imgs.size(0)
-                num_samples += batch_size
+                for k in metrics_sum:
+                    metrics_sum[k] += batch_metrics[k]
 
-                # Compute metrics per batch (convert to float)
-                metrics_sum["dice"] += dice_coeff(preds_bin, masks).item() * batch_size
-                metrics_sum["iou"] += iou(preds_bin, masks).item() * batch_size
-                metrics_sum["acc"] += accuracy(preds_bin, masks).item() * batch_size
-                metrics_sum["sens"] += sensitivity(preds_bin, masks).item() * batch_size
-                metrics_sum["spec"] += specificity(preds_bin, masks).item() * batch_size
+                num_batches += 1
 
-        # --- Average metrics correctly ---
+        # --- Average metrics correctly across batches ---
         for k in metrics_sum:
-            value = metrics_sum[k] / num_samples
+            value = metrics_sum[k] / num_batches
             epoch_metrics[k].append(value)
             print(f"  {k}: {value:.4f}")
+
 
     model.eval()
     # --- Save checkpoint each epoch ---
