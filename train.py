@@ -8,19 +8,20 @@ from models.unet import UNet
 from models.simple_encoder import SimpleEncoderDecoder
 from dataloader import *
 from metrics import dice_coeff, iou, accuracy, sensitivity, specificity
+import matplotlib.pyplot as plt
 
 
 def train_model(args):
-    # Device setup
+    # --- Device setup ---
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    # Load datasets
+    # --- Datasets ---
     train_loader, test_loader = make_dataloaders(
         batch_size=args.batch_size, img_size=(args.img_size, args.img_size)
     )
 
-    # Model
+    # --- Model ---
     if args.model == "simple":
         model = SimpleEncoderDecoder(in_channels=3, out_channels=1).to(device)
     else:
@@ -28,16 +29,13 @@ def train_model(args):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
-    # Loss function
+    # --- Loss function ---
     if args.loss == "bce":
         criterion = nn.BCEWithLogitsLoss()
-
     elif args.loss == "wbce":
         pos_weight = torch.tensor([args.pos_weight]).to(device)
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
-
     elif args.loss == "dice":
-        # Soft Dice loss
         def dice_loss(pred, target, smooth=1.0):
             pred = torch.sigmoid(pred)
             intersection = (pred * target).sum(dim=(2, 3))
@@ -45,9 +43,7 @@ def train_model(args):
             dice = (2. * intersection + smooth) / (union + smooth)
             return 1 - dice.mean()
         criterion = dice_loss
-
     elif args.loss == "bce_dice":
-        # Combined BCE + Dice loss
         bce = nn.BCEWithLogitsLoss()
         def bce_dice_loss(pred, target):
             pred_sigmoid = torch.sigmoid(pred)
@@ -56,9 +52,7 @@ def train_model(args):
             dice = (2. * intersection + 1.0) / (union + 1.0)
             return 0.5 * bce(pred, target) + 0.5 * (1 - dice.mean())
         criterion = bce_dice_loss
-
     elif args.loss == "focal":
-        # Focal loss
         def focal_loss(pred, target, alpha=0.8, gamma=2.0):
             bce = nn.BCEWithLogitsLoss(reduction='none')(pred, target)
             pt = torch.exp(-bce)
@@ -66,14 +60,16 @@ def train_model(args):
             return focal.mean()
         criterion = focal_loss
     else:
-        raise ValueError(
-            "Loss must be one of: 'bce', 'wbce', 'dice', 'bce_dice', or 'focal'"
-    )
-
+        raise ValueError("Unsupported loss type")
 
     os.makedirs(args.output_dir, exist_ok=True)
 
+    # --- Track metrics per epoch ---
+    epoch_losses = []
+    epoch_metrics = {"dice": [], "iou": [], "acc": [], "sens": [], "spec": []}
+
     for epoch in range(args.epochs):
+        # --- Training phase ---
         model.train()
         total_loss = 0.0
 
@@ -87,52 +83,66 @@ def train_model(args):
             total_loss += loss.item()
 
         avg_loss = total_loss / len(train_loader)
+        epoch_losses.append(avg_loss)
         print(f"Epoch {epoch+1}/{args.epochs} - Loss: {avg_loss:.4f}")
 
-        # Save checkpoint
-        if args.model == "unet":
-            torch.save(model.state_dict(), os.path.join(args.output_dir, f"unet_epoch{epoch+1}.pth"))
-        elif args.model == "simple":
-            torch.save(model.state_dict(), os.path.join(args.output_dir, f"simple_epoch{epoch+1}.pth"))
+        # --- Evaluation phase per epoch ---
+        model.eval()
+        metrics_sum = {k: 0 for k in epoch_metrics.keys()}
+        with torch.no_grad():
+            for imgs, masks in test_loader:
+                imgs, masks = imgs.to(device), masks.to(device)
+                preds = torch.sigmoid(model(imgs))
+                metrics_sum["dice"] += dice_coeff(preds, masks)
+                metrics_sum["iou"] += iou(preds, masks)
+                metrics_sum["acc"] += accuracy(preds, masks)
+                metrics_sum["sens"] += sensitivity(preds, masks)
+                metrics_sum["spec"] += specificity(preds, masks)
 
-    model.eval()
-    metrics = {"dice": 0, "iou": 0, "acc": 0, "sens": 0, "spec": 0}
+        # Average metrics per epoch
+        for k in metrics_sum:
+            value = metrics_sum[k] / len(test_loader)
+            epoch_metrics[k].append(value)
+            print(f"  {k}: {value:.4f}")
 
-    with torch.no_grad():
-        for imgs, masks in tqdm(test_loader, desc="Evaluating", leave=False):
-            imgs, masks = imgs.to(device), masks.to(device)
-            preds = torch.sigmoid(model(imgs))
-            metrics["dice"] += dice_coeff(preds, masks)
-            metrics["iou"] += iou(preds, masks)
-            metrics["acc"] += accuracy(preds, masks)
-            metrics["sens"] += sensitivity(preds, masks)
-            metrics["spec"] += specificity(preds, masks)
+        # --- Save checkpoint each epoch ---
+        torch.save(model.state_dict(),
+                   os.path.join(args.output_dir, f"{args.model}_epoch{epoch+1}.pth"))
 
-    for k in metrics:
-        metrics[k] /= len(test_loader)
-        print(f"{k}: {metrics[k]:.4f}")
+    # --- Save metric curves ---
+    plt.figure(figsize=(8, 6))
+    for k, values in epoch_metrics.items():
+        plt.plot(range(1, args.epochs+1), values, marker='o', label=k)
+    plt.title(f"Metrics per Epoch ({args.model}, {args.loss})")
+    plt.xlabel("Epoch")
+    plt.ylabel("Score")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plot_path = os.path.join(args.output_dir, f"metrics_curve_{args.model}_{args.loss}.png")
+    plt.savefig(plot_path)
+    plt.close()
+    print(f"[INFO] Saved metrics plot → {plot_path}")
 
-    # --- Save metrics to a model-specific file ---
-    results_filename = f"results_{args.model}.txt"
-    results_path = os.path.join(args.output_dir, results_filename)
-
+    # --- Save final averaged metrics ---
+    results_path = os.path.join(args.output_dir, f"results_{args.model}_{args.loss}.txt")
     with open(results_path, "w") as f:
-        for k, v in metrics.items():
+        for k, v in {k: epoch_metrics[k][-1] for k in epoch_metrics}.items():
             f.write(f"{k}: {v:.4f}\n")
-
+    print(f"[INFO] Metrics saved → {results_path}")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train U-Net on HPC for segmentation")
-    parser.add_argument("--model", type=str, default="unet", choices=["unet", "simple"],
-                    help="Choose segmentation model: unet or simple")
-    parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
-    parser.add_argument("--batch-size", type=int, default=4, help="Batch size for training")
-    parser.add_argument("--img-size", type=int, default=256, help="Resize image to this size")
-    parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
-    parser.add_argument("--loss", type=str, default="bce", choices=["bce", "wbce"], help="Loss function type")
-    parser.add_argument("--pos-weight", type=float, default=3.0, help="Positive class weight for wbce")
-    parser.add_argument("--output-dir", type=str, default="./results_unet", help="Output directory for results")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, default="unet", choices=["unet", "simple"])
+    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--img-size", type=int, default=256)
+    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--loss", type=str, default="bce",
+                        choices=["bce", "wbce", "dice", "bce_dice", "focal"])
+    parser.add_argument("--pos-weight", type=float, default=3.0)
+    parser.add_argument("--output-dir", type=str, default="./results_unet")
     args = parser.parse_args()
 
     train_model(args)

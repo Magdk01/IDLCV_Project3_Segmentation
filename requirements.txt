@@ -1,6 +1,7 @@
 # Core deep learning packages
 torch>=2.1.0
 torchvision>=0.16.0
+matplotlib>=3.8.0
 
 # Data handling and preprocessing
 Pillow>=9.0.0
