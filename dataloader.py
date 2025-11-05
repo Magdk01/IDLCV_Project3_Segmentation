@@ -28,13 +28,26 @@ class SegmentationDataset(Dataset):
         mask = (mask > 0.5).float()  # binarize
         return image, mask
 
-
 def load_drive_dataset(root="/dtu/datasets1/02516/DRIVE"):
-    train_imgs = sorted(glob.glob(os.path.join(root, "training/images/*.tif")))
-    train_masks = sorted(glob.glob(os.path.join(root, "training/mask/*.tif")))
-    test_imgs = sorted(glob.glob(os.path.join(root, "test/images/*.tif")))
-    test_masks = sorted(glob.glob(os.path.join(root, "test/mask/*.tif")))
-    return (train_imgs, train_masks), (test_imgs, test_masks)
+    """Load DRIVE dataset image and mask paths from training/ and test/ folders."""
+    # --- Training set ---
+    img_train = sorted(glob.glob(os.path.join(root, "training/images/*_training.tif")))
+    mask_train = sorted(glob.glob(os.path.join(root, "training/mask/*_training_mask.gif")))
+
+    # --- Test set ---
+    img_test = sorted(glob.glob(os.path.join(root, "test/images/*_test.tif")))
+    mask_test = sorted(glob.glob(os.path.join(root, "test/mask/*_test_mask.gif")))
+
+    print(f"[INFO] DRIVE found {len(img_train)} train images and {len(mask_train)} train masks")
+    print(f"[INFO] DRIVE found {len(img_test)} test images and {len(mask_test)} test masks")
+
+    # --- Align names to avoid mismatches ---
+    from dataloader import align_pairs  # ensure align_pairs is defined above this
+    img_train, mask_train = align_pairs(img_train, mask_train)
+    img_test, mask_test = align_pairs(img_test, mask_test)
+
+    return (img_train, mask_train), (img_test, mask_test)
+
 
 
 def load_ph2_dataset(root="/dtu/datasets1/02516/PH2_Dataset_images"):
