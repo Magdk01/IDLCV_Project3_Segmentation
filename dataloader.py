@@ -2,6 +2,7 @@ import os
 import glob
 from PIL import Image
 import torch
+import re
 from torch.utils.data import Dataset
 from torchvision import transforms
 from sklearn.model_selection import train_test_split
@@ -47,15 +48,21 @@ def load_ph2_dataset(root="/dtu/datasets1/02516/PH2_Dataset_images"):
             masks.append(mask)
     return train_test_split(imgs, masks, test_size=0.2, random_state=42)
 
+def normalize_name(path):
+    """Return a comparable basename without suffixes like _lesion or _manual1."""
+    base = os.path.splitext(os.path.basename(path))[0]
+    base = re.sub(r'(_lesion|_manual1|_training)$', '', base)
+    return base
 
 def align_pairs(imgs, masks):
-    """Ensure we only keep images that have a matching mask filename."""
-    img_basenames = {os.path.splitext(os.path.basename(p))[0] for p in imgs}
-    mask_basenames = {os.path.splitext(os.path.basename(p))[0] for p in masks}
+    """Match images and masks by normalized filename."""
+    img_basenames = {normalize_name(p) for p in imgs}
+    mask_basenames = {normalize_name(p) for p in masks}
     valid = img_basenames & mask_basenames
-    imgs = [p for p in imgs if os.path.splitext(os.path.basename(p))[0] in valid]
-    masks = [p for p in masks if os.path.splitext(os.path.basename(p))[0] in valid]
+    imgs = [p for p in imgs if normalize_name(p) in valid]
+    masks = [p for p in masks if normalize_name(p) in valid]
     return sorted(imgs), sorted(masks)
+
 
 
 def make_dataloaders(batch_size=4, img_size=(256, 256)):
