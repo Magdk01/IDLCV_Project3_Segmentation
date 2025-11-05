@@ -53,19 +53,30 @@ def make_dataloaders(batch_size=4, img_size=(256, 256)):
         transforms.Resize(img_size),
         transforms.ToTensor()
     ])
+
+    # --- Load DRIVE ---
     (drive_train_imgs, drive_train_masks), (drive_test_imgs, drive_test_masks) = load_drive_dataset()
-    ph2_train_imgs, ph2_test_imgs, ph2_train_masks, ph2_test_masks = load_ph2_dataset()
 
-    # combine datasets
-    train_imgs = drive_train_imgs + ph2_train_imgs
-    train_masks = drive_train_masks + ph2_train_masks
-    test_imgs = drive_test_imgs + ph2_test_imgs
-    test_masks = drive_test_masks + ph2_test_masks
+    # --- Load PH2 ---
+    train_imgs_ph2, test_imgs_ph2, train_masks_ph2, test_masks_ph2 = load_ph2_dataset()
 
+    # --- Combine both datasets ---
+    train_imgs = drive_train_imgs + train_imgs_ph2
+    train_masks = drive_train_masks + train_masks_ph2
+    test_imgs = drive_test_imgs + test_imgs_ph2
+    test_masks = drive_test_masks + test_masks_ph2
+
+    # --- Debug info (shows up in .out file) ---
+    print(f"[INFO] DRIVE train: {len(drive_train_imgs)} | PH2 train: {len(train_imgs_ph2)}")
+    print(f"[INFO] Combined train: {len(train_imgs)} | Combined test: {len(test_imgs)}")
+
+    # --- Create datasets ---
     train_ds = SegmentationDataset(train_imgs, train_masks, t)
     test_ds = SegmentationDataset(test_imgs, test_masks, t)
 
+    # --- Return dataloaders ---
     return (
         torch.utils.data.DataLoader(train_ds, batch_size=batch_size, shuffle=True),
         torch.utils.data.DataLoader(test_ds, batch_size=batch_size, shuffle=False)
     )
+
