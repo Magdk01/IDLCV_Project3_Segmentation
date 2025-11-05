@@ -88,20 +88,30 @@ def train_model(args):
 
         # --- Evaluation phase per epoch ---
         model.eval()
-        metrics_sum = {k: 0 for k in epoch_metrics.keys()}
+        metrics_sum = {k: 0.0 for k in epoch_metrics.keys()}
+        num_samples = 0
+
         with torch.no_grad():
             for imgs, masks in test_loader:
                 imgs, masks = imgs.to(device), masks.to(device)
                 preds = torch.sigmoid(model(imgs))
-                metrics_sum["dice"] += dice_coeff(preds, masks)
-                metrics_sum["iou"] += iou(preds, masks)
-                metrics_sum["acc"] += accuracy(preds, masks)
-                metrics_sum["sens"] += sensitivity(preds, masks)
-                metrics_sum["spec"] += specificity(preds, masks)
 
-        # Average metrics per epoch
+                # Threshold predictions for binary segmentation
+                preds_bin = (preds > 0.5).float()
+
+                batch_size = imgs.size(0)
+                num_samples += batch_size
+
+                # Compute metrics per batch (convert to float)
+                metrics_sum["dice"] += dice_coeff(preds_bin, masks).item() * batch_size
+                metrics_sum["iou"] += iou(preds_bin, masks).item() * batch_size
+                metrics_sum["acc"] += accuracy(preds_bin, masks).item() * batch_size
+                metrics_sum["sens"] += sensitivity(preds_bin, masks).item() * batch_size
+                metrics_sum["spec"] += specificity(preds_bin, masks).item() * batch_size
+
+        # --- Average metrics correctly ---
         for k in metrics_sum:
-            value = metrics_sum[k] / len(test_loader)
+            value = metrics_sum[k] / num_samples
             epoch_metrics[k].append(value)
             print(f"  {k}: {value:.4f}")
 
