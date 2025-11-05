@@ -4,7 +4,7 @@ import argparse
 import torch
 import torch.nn as nn
 from tqdm import tqdm
-from unet import UNet
+from models.unet import UNet
 from dataloader import *
 from metrics import dice_coeff, iou, accuracy, sensitivity, specificity
 
