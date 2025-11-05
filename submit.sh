@@ -12,7 +12,7 @@
 #BSUB -N
 
 # Load environment
-module load python/3.10
+module load python/3.12.11
 module load cuda/12.1
 
 # (Optional) Activate your conda/venv
