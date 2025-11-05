@@ -25,7 +25,7 @@ def train_model(args):
     if args.model == "simple":
         model = SimpleEncoderDecoder(in_channels=3, out_channels=1).to(device)
     else:
-        model = UNet(in_channels=3, out_channels=1).to(device)
+        model = UNet(in_channels=3, n_channels=1).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
@@ -111,7 +111,9 @@ def train_model(args):
     # --- Save metric curves ---
     plt.figure(figsize=(8, 6))
     for k, values in epoch_metrics.items():
-        plt.plot(range(1, args.epochs+1), values, marker='o', label=k)
+        # Convert torch tensors to floats if necessary
+        values_cpu = [v.item() if torch.is_tensor(v) else v for v in values]
+        plt.plot(range(1, args.epochs + 1), values_cpu, marker='o', label=k)
     plt.title(f"Metrics per Epoch ({args.model}, {args.loss})")
     plt.xlabel("Epoch")
     plt.ylabel("Score")
