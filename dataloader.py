@@ -28,36 +28,6 @@ class SegmentationDataset(Dataset):
         mask = (mask > 0.5).float()  # binarize
         return image, mask
 
-def load_drive_dataset(root="/dtu/datasets1/02516/DRIVE"):
-    """Load DRIVE dataset image and mask paths from training/ and test/ folders."""
-    # --- Training set ---
-    img_train = sorted(glob.glob(os.path.join(root, "training/images/*_training.tif")))
-    mask_train = sorted(glob.glob(os.path.join(root, "training/mask/*_training_mask.gif")))
-
-    # --- Test set ---
-    img_test = sorted(glob.glob(os.path.join(root, "test/images/*_test.tif")))
-    mask_test = sorted(glob.glob(os.path.join(root, "test/mask/*_test_mask.gif")))
-
-    # --- Align names to avoid mismatches ---
-    from dataloader import align_pairs  # ensure align_pairs is defined above this
-    img_train, mask_train = align_pairs(img_train, mask_train)
-    img_test, mask_test = align_pairs(img_test, mask_test)
-
-    return (img_train, mask_train), (img_test, mask_test)
-
-
-
-def load_ph2_dataset(root="/dtu/datasets1/02516/PH2_Dataset_images"):
-    imgs, masks = [], []
-    for case_dir in sorted(glob.glob(os.path.join(root, "IMD*"))):
-        cid = os.path.basename(case_dir)
-        img = os.path.join(case_dir, f"{cid}_Dermoscopic_Image/{cid}.bmp")
-        mask = os.path.join(case_dir, f"{cid}_lesion/{cid}_lesion.bmp")
-        if os.path.exists(img) and os.path.exists(mask):
-            imgs.append(img)
-            masks.append(mask)
-    return train_test_split(imgs, masks, test_size=0.2, random_state=42)
-
 def normalize_name(path):
     """Return a comparable basename without suffixes like _lesion or _manual1."""
     base = os.path.splitext(os.path.basename(path))[0]
@@ -72,6 +42,37 @@ def align_pairs(imgs, masks):
     imgs = [p for p in imgs if normalize_name(p) in valid]
     masks = [p for p in masks if normalize_name(p) in valid]
     return sorted(imgs), sorted(masks)
+
+def load_drive_dataset(root="/dtu/datasets1/02516/DRIVE"):
+    """Load DRIVE dataset image and mask paths from training/ and test/ folders."""
+    # --- Training set ---
+    img_train = sorted(glob.glob(os.path.join(root, "training/images/*_training.tif")))
+    mask_train = sorted(glob.glob(os.path.join(root, "training/mask/*_training_mask.gif")))
+
+    # --- Test set ---
+    img_test = sorted(glob.glob(os.path.join(root, "test/images/*_test.tif")))
+    mask_test = sorted(glob.glob(os.path.join(root, "test/mask/*_test_mask.gif")))
+
+    print(f"[INFO] DRIVE found {len(img_train)} training images and {len(mask_train)} training masks")
+    print(f"[INFO] DRIVE found {len(img_test)} test images and {len(mask_test)} test masks")
+
+    # --- Align names to avoid mismatches ---
+    img_train, mask_train = align_pairs(img_train, mask_train)
+    img_test, mask_test = align_pairs(img_test, mask_test)
+
+    return (img_train, mask_train), (img_test, mask_test)
+
+
+def load_ph2_dataset(root="/dtu/datasets1/02516/PH2_Dataset_images"):
+    imgs, masks = [], []
+    for case_dir in sorted(glob.glob(os.path.join(root, "IMD*"))):
+        cid = os.path.basename(case_dir)
+        img = os.path.join(case_dir, f"{cid}_Dermoscopic_Image/{cid}.bmp")
+        mask = os.path.join(case_dir, f"{cid}_lesion/{cid}_lesion.bmp")
+        if os.path.exists(img) and os.path.exists(mask):
+            imgs.append(img)
+            masks.append(mask)
+    return train_test_split(imgs, masks, test_size=0.2, random_state=42)
 
 def make_dataloaders(batch_size=4, img_size=(256, 256)):
     """Create combined dataloaders for DRIVE + PH2 datasets."""
