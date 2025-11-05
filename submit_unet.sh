@@ -14,9 +14,9 @@
 module load python3/3.11.9
 module load cuda/12.1
 
-source ~/02516/IDLCV_Project3_Segmentation/venv/bin/activate
+cd ~/Desktop/IDLCV_Project3_Segmentation/
 
-cd ~/02516/IDLCV_Project3_Segmentation
+source .venv/bin/activate
 
 python3 train.py \
   --model unet \
@@ -24,6 +24,6 @@ python3 train.py \
   --batch-size 2 \
   --img-size 256 \
   --lr 1e-4 \
-  --loss wbce \
+  --loss focal \
   --pos-weight 3.0 \
   --output-dir ./hpc_outputs
