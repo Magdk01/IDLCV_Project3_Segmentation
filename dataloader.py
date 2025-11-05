@@ -29,9 +29,9 @@ class SegmentationDataset(Dataset):
         return image, mask
 
 def normalize_name(path):
-    """Return a comparable basename without suffixes like _lesion or _manual1."""
+    """Return a comparable basename without suffixes like _mask or _manual1."""
     base = os.path.splitext(os.path.basename(path))[0]
-    base = re.sub(r'(_lesion|_manual1|_training)$', '', base)
+    base = re.sub(r'(_mask|_manual1)$', '', base)
     return base
 
 def align_pairs(imgs, masks):
@@ -56,9 +56,11 @@ def load_drive_dataset(root="/dtu/datasets1/02516/DRIVE"):
     print(f"[INFO] DRIVE found {len(img_train)} training images and {len(mask_train)} training masks")
     print(f"[INFO] DRIVE found {len(img_test)} test images and {len(mask_test)} test masks")
 
-    # --- Align names to avoid mismatches ---
+    # --- Align names correctly ---
     img_train, mask_train = align_pairs(img_train, mask_train)
     img_test, mask_test = align_pairs(img_test, mask_test)
+
+    print(f"[INFO] After align_pairs: train={len(img_train)}, test={len(img_test)}")
 
     return (img_train, mask_train), (img_test, mask_test)
 
