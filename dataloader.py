@@ -69,6 +69,15 @@ def make_dataloaders(batch_size=4, img_size=(256, 256)):
     # --- Debug info (shows up in .out file) ---
     print(f"[INFO] DRIVE train: {len(drive_train_imgs)} | PH2 train: {len(train_imgs_ph2)}")
     print(f"[INFO] Combined train: {len(train_imgs)} | Combined test: {len(test_imgs)}")
+    print(f"[DEBUG] train_imgs: {len(train_imgs)}, train_masks: {len(train_masks)}")
+    print(f"[DEBUG] test_imgs:  {len(test_imgs)}, test_masks:  {len(test_masks)}")
+
+    # Safety: drop extra samples if mismatch happens
+    n = min(len(train_imgs), len(train_masks))
+    train_imgs, train_masks = train_imgs[:n], train_masks[:n]
+    n = min(len(test_imgs), len(test_masks))
+    test_imgs, test_masks = test_imgs[:n], test_masks[:n]
+
 
     # --- Create datasets ---
     train_ds = SegmentationDataset(train_imgs, train_masks, t)
