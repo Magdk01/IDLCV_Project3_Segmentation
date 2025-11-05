@@ -86,6 +86,7 @@ def train_model(args):
             labels_list_device = [l.to(device) for l in labels_list]
 
             # Training loss: Point-based loss (computes loss ONLY at annotated point locations)
+            # Uses logits (not thresholded) for proper gradient flow during training
             # This uses sparse supervision - only the points provide training signal
             loss = criterion(preds, points_list_device, labels_list_device)
             optimizer.zero_grad()
@@ -108,20 +109,25 @@ def train_model(args):
         with torch.no_grad():
             for imgs, masks, points_list, labels_list in test_loader:
                 imgs, masks = imgs.to(device), masks.to(device)
-                preds_logits = model(imgs)  # Keep logits for loss computation
-                preds = torch.sigmoid(preds_logits)  # Probabilities for metrics
+                preds_logits = model(imgs)  # Model outputs logits
 
-                # Validation loss: Compare predictions against GROUND TRUTH masks
+                # Validation loss: Use logits (not thresholded) for proper loss computation
                 # This uses full mask supervision (not sparse points)
                 val_loss = val_criterion(preds_logits, masks)
+
+                # Convert to binary predictions (0 or 1) for metrics comparison
+                # Metrics compare binary predictions vs binary ground truth masks
+                preds_probs = torch.sigmoid(preds_logits)  # Probabilities
+                preds_binary = (preds_probs > 0.5).float()  # Binary (0 or 1)
                 val_loss_sum += val_loss.item()
 
-                # Metrics against GROUND TRUTH masks
-                metrics_sum["dice"] += dice_coeff(preds, masks)
-                metrics_sum["iou"] += iou(preds, masks)
-                metrics_sum["acc"] += accuracy(preds, masks)
-                metrics_sum["sens"] += sensitivity(preds, masks)
-                metrics_sum["spec"] += specificity(preds, masks)
+                # Metrics against GROUND TRUTH masks (using binary predictions)
+                # Note: metrics functions also threshold internally, but we pass binary for consistency
+                metrics_sum["dice"] += dice_coeff(preds_binary, masks)
+                metrics_sum["iou"] += iou(preds_binary, masks)
+                metrics_sum["acc"] += accuracy(preds_binary, masks)
+                metrics_sum["sens"] += sensitivity(preds_binary, masks)
+                metrics_sum["spec"] += specificity(preds_binary, masks)
 
         # Average validation loss and metrics per epoch (against GROUND TRUTH)
         avg_val_loss = val_loss_sum / len(test_loader)
