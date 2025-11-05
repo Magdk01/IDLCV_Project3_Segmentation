@@ -1,13 +1,13 @@
 #!/bin/bash
 #BSUB -q gpuv100
-#BSUB -J action_recognition[5]
+#BSUB -J segmentation_models
 #BSUB -n 4
 #BSUB -R "rusage[mem=10GB]"
 #BSUB -R "span[hosts=1]"
 #BSUB -gpu "num=1:mode=exclusive_process"
-#BSUB -W 4:00
-#BSUB -o hpc_outputs/unet_%J_%I.out
-#BSUB -e hpc_outputs/unet_%J_%I.err
+#BSUB -W 6:00
+#BSUB -o hpc_outputs/%J.out
+#BSUB -e hpc_outputs/%J.err
 #BSUB -B
 #BSUB -N
 
@@ -20,12 +20,9 @@ source ~/02516/IDLCV_Project3_Segmentation/venv/bin/activate
 # Move to your working directory
 cd ~/02516/IDLCV_Project3_Segmentation
 
-
-# --- Model selection: unet or simple ---
-MODEL=${1:-unet}
-
+echo "[INFO] Starting SimpleEncoder training..."
 python3 train.py \
-  --model $MODEL \
+  --model simple \
   --epochs 25 \
   --batch-size 2 \
   --img-size 256 \
@@ -33,3 +30,26 @@ python3 train.py \
   --loss wbce \
   --pos-weight 3.0 \
   --output-dir ./hpc_outputs
+
+# rename result file (if it exists)
+if [ -f "./hpc_outputs/results.txt" ]; then
+    mv ./hpc_outputs/results.txt ./hpc_outputs/results_simple.txt
+fi
+
+echo "[INFO] Starting UNet training..."
+python3 train.py \
+  --model unet \
+  --epochs 25 \
+  --batch-size 2 \
+  --img-size 256 \
+  --lr 1e-4 \
+  --loss wbce \
+  --pos-weight 3.0 \
+  --output-dir ./hpc_outputs
+
+# rename result file (if it exists)
+if [ -f "./hpc_outputs/results.txt" ]; then
+    mv ./hpc_outputs/results.txt ./hpc_outputs/results_unet.txt
+fi
+
+echo "[INFO] Both models finished successfully!"
