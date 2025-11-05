@@ -48,6 +48,16 @@ def load_ph2_dataset(root="/dtu/datasets1/02516/PH2_Dataset_images"):
     return train_test_split(imgs, masks, test_size=0.2, random_state=42)
 
 
+def align_pairs(imgs, masks):
+    """Ensure we only keep images that have a matching mask filename."""
+    img_basenames = {os.path.splitext(os.path.basename(p))[0] for p in imgs}
+    mask_basenames = {os.path.splitext(os.path.basename(p))[0] for p in masks}
+    valid = img_basenames & mask_basenames
+    imgs = [p for p in imgs if os.path.splitext(os.path.basename(p))[0] in valid]
+    masks = [p for p in masks if os.path.splitext(os.path.basename(p))[0] in valid]
+    return sorted(imgs), sorted(masks)
+
+
 def make_dataloaders(batch_size=4, img_size=(256, 256)):
     t = transforms.Compose([
         transforms.Resize(img_size),
@@ -59,6 +69,13 @@ def make_dataloaders(batch_size=4, img_size=(256, 256)):
 
     # --- Load PH2 ---
     train_imgs_ph2, test_imgs_ph2, train_masks_ph2, test_masks_ph2 = load_ph2_dataset()
+
+    # Align image/mask pairs to avoid mismatched counts
+    drive_train_imgs, drive_train_masks = align_pairs(drive_train_imgs, drive_train_masks)
+    drive_test_imgs, drive_test_masks = align_pairs(drive_test_imgs, drive_test_masks)
+    train_imgs_ph2, train_masks_ph2 = align_pairs(train_imgs_ph2, train_masks_ph2)
+    test_imgs_ph2, test_masks_ph2 = align_pairs(test_imgs_ph2, test_masks_ph2)
+
 
     # --- Combine both datasets ---
     train_imgs = drive_train_imgs + train_imgs_ph2
