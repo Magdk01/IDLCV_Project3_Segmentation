@@ -1,11 +1,11 @@
 #!/bin/bash
-#BSUB -q gpuv100
+#BSUB -q c02516
 #BSUB -J segmentation_models_simple
 #BSUB -n 4
 #BSUB -R "rusage[mem=10GB]"
 #BSUB -R "span[hosts=1]"
 #BSUB -gpu "num=1:mode=exclusive_process"
-#BSUB -W 6:00
+#BSUB -W 2:00
 #BSUB -o hpc_outputs/simple_%J.out
 #BSUB -e hpc_outputs/simple_%J.err
 #BSUB -B
