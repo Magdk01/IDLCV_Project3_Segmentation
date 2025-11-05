@@ -124,7 +124,7 @@ def train_model(args):
     plt.figure(figsize=(8, 6))
     for k, values in epoch_metrics.items():
         clean_values = [v for v in values if v is not None]
-    plt.plot(range(1, args.epochs + 1), clean_values, marker='o', label=k)
+        plt.plot(range(1, args.epochs + 1), clean_values, marker='o', label=k)
 
     plt.title(f"Metrics per Epoch ({args.model}, {args.loss})")
     plt.xlabel("Epoch")
