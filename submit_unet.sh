@@ -11,13 +11,11 @@
 #BSUB -B
 #BSUB -N
 
-# Load environment
 module load python3/3.11.9
 module load cuda/12.1
 
 source ~/02516/IDLCV_Project3_Segmentation/venv/bin/activate
 
-# Move to your working directory
 cd ~/02516/IDLCV_Project3_Segmentation
 
 python3 train.py \

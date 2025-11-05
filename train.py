@@ -28,9 +28,7 @@ def train_model(args):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
-    # -----------------------------
-# Loss function selection
-# -----------------------------
+    # Loss function
     if args.loss == "bce":
         criterion = nn.BCEWithLogitsLoss()
 
@@ -75,9 +73,6 @@ def train_model(args):
 
     os.makedirs(args.output_dir, exist_ok=True)
 
-    # ---------------------------
-    # Training Loop
-    # ---------------------------
     for epoch in range(args.epochs):
         model.train()
         total_loss = 0.0
@@ -95,11 +90,11 @@ def train_model(args):
         print(f"Epoch {epoch+1}/{args.epochs} - Loss: {avg_loss:.4f}")
 
         # Save checkpoint
-        torch.save(model.state_dict(), os.path.join(args.output_dir, f"unet_epoch{epoch+1}.pth"))
+        if args.model == "unet":
+            torch.save(model.state_dict(), os.path.join(args.output_dir, f"unet_epoch{epoch+1}.pth"))
+        elif args.model == "simple":
+            torch.save(model.state_dict(), os.path.join(args.output_dir, f"simple_epoch{epoch+1}.pth"))
 
-    # ---------------------------
-    # Evaluation
-    # ---------------------------
     model.eval()
     metrics = {"dice": 0, "iou": 0, "acc": 0, "sens": 0, "spec": 0}
 

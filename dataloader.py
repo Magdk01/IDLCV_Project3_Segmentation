@@ -45,18 +45,15 @@ def align_pairs(imgs, masks):
 
 def load_drive_dataset(root="/dtu/datasets1/02516/DRIVE"):
     """Load DRIVE dataset image and mask paths from training/ and test/ folders."""
-    # --- Training set ---
     img_train = sorted(glob.glob(os.path.join(root, "training/images/*_training.tif")))
     mask_train = sorted(glob.glob(os.path.join(root, "training/mask/*_training_mask.gif")))
 
-    # --- Test set ---
     img_test = sorted(glob.glob(os.path.join(root, "test/images/*_test.tif")))
     mask_test = sorted(glob.glob(os.path.join(root, "test/mask/*_test_mask.gif")))
 
     print(f"[INFO] DRIVE found {len(img_train)} training images and {len(mask_train)} training masks")
     print(f"[INFO] DRIVE found {len(img_test)} test images and {len(mask_test)} test masks")
 
-    # --- Align names correctly ---
     img_train, mask_train = align_pairs(img_train, mask_train)
     img_test, mask_test = align_pairs(img_test, mask_test)
 
@@ -83,34 +80,23 @@ def make_dataloaders(batch_size=4, img_size=(256, 256)):
         transforms.ToTensor()
     ])
 
-    # --- Load both datasets ---
     (drive_train_imgs, drive_train_masks), (drive_test_imgs, drive_test_masks) = load_drive_dataset()
     ph2_train_imgs, ph2_test_imgs, ph2_train_masks, ph2_test_masks = load_ph2_dataset()
 
-    # --- Use all 40 DRIVE images for training (optional) ---
-    # comment out these two lines if you only want 20
     drive_train_imgs = drive_train_imgs + drive_test_imgs
     drive_train_masks = drive_train_masks + drive_test_masks
-    drive_test_imgs, drive_test_masks = [], []  # no DRIVE in test set
+    drive_test_imgs, drive_test_masks = [], []
 
-    # --- Combine both datasets ---
     train_imgs = list(drive_train_imgs) + list(ph2_train_imgs)
     train_masks = list(drive_train_masks) + list(ph2_train_masks)
     test_imgs = list(drive_test_imgs) + list(ph2_test_imgs)
     test_masks = list(drive_test_masks) + list(ph2_test_masks)
 
-    print(f"[INFO] DRIVE train: {len(drive_train_imgs)} | PH2 train: {len(ph2_train_imgs)}")
-    print(f"[INFO] Combined train: {len(train_imgs)} | Combined test: {len(test_imgs)}")
-    print(f"[DEBUG] train_imgs: {len(train_imgs)}, train_masks: {len(train_masks)}")
-    print(f"[DEBUG] test_imgs:  {len(test_imgs)}, test_masks:  {len(test_masks)}")
-
-    # --- Ensure matching lengths ---
     n = min(len(train_imgs), len(train_masks))
     train_imgs, train_masks = train_imgs[:n], train_masks[:n]
     n = min(len(test_imgs), len(test_masks))
     test_imgs, test_masks = test_imgs[:n], test_masks[:n]
 
-    # --- Create datasets ---
     train_ds = SegmentationDataset(train_imgs, train_masks, t)
     test_ds = SegmentationDataset(test_imgs, test_masks, t)
 
