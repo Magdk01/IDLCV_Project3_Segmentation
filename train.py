@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 from models.unet import UNet
+from models.simple_encoder import SimpleEncoderDecoder
 from dataloader import *
 from metrics import dice_coeff, iou, accuracy, sensitivity, specificity
 
@@ -20,7 +21,11 @@ def train_model(args):
     )
 
     # Model
-    model = UNet(n_channels=3, n_classes=1).to(device)
+    if args.model == "simple":
+        model = SimpleEncoderDecoder(in_channels=3, out_channels=1).to(device)
+    else:
+        model = UNet(in_channels=3, out_channels=1).to(device)
+
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     # Loss function
@@ -84,6 +89,8 @@ def train_model(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train U-Net on HPC for segmentation")
+    parser.add_argument("--model", type=str, default="unet", choices=["unet", "simple"],
+                    help="Choose segmentation model: unet or simple")
     parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
     parser.add_argument("--batch-size", type=int, default=4, help="Batch size for training")
     parser.add_argument("--img-size", type=int, default=256, help="Resize image to this size")

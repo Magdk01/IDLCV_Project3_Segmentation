@@ -21,8 +21,11 @@ source ~/02516/IDLCV_Project3_Segmentation/venv/bin/activate
 cd ~/02516/IDLCV_Project3_Segmentation
 
 
-# Run the training
+# --- Model selection: unet or simple ---
+MODEL=${1:-unet}
+
 python3 train.py \
+  --model $MODEL \
   --epochs 25 \
   --batch-size 2 \
   --img-size 256 \
