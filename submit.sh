@@ -15,8 +15,7 @@
 module load python3/3.11.9
 module load cuda/12.1
 
-# (Optional) Activate your conda/venv
-# source ~/venvs/torch/bin/activate
+source ~/02516/IDLCV_Project3_Segmentation/venv/bin/activate
 
 # Move to your working directory
 cd ~/02516/IDLCV_Project3_Segmentation
