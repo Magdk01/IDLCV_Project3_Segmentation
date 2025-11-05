@@ -38,9 +38,6 @@ def load_drive_dataset(root="/dtu/datasets1/02516/DRIVE"):
     img_test = sorted(glob.glob(os.path.join(root, "test/images/*_test.tif")))
     mask_test = sorted(glob.glob(os.path.join(root, "test/mask/*_test_mask.gif")))
 
-    print(f"[INFO] DRIVE found {len(img_train)} train images and {len(mask_train)} train masks")
-    print(f"[INFO] DRIVE found {len(img_test)} test images and {len(mask_test)} test masks")
-
     # --- Align names to avoid mismatches ---
     from dataloader import align_pairs  # ensure align_pairs is defined above this
     img_train, mask_train = align_pairs(img_train, mask_train)
@@ -79,50 +76,42 @@ def align_pairs(imgs, masks):
 
 
 def make_dataloaders(batch_size=4, img_size=(256, 256)):
+    from torchvision import transforms
     t = transforms.Compose([
         transforms.Resize(img_size),
         transforms.ToTensor()
     ])
 
-    # --- Load DRIVE ---
+    # --- Load both datasets ---
     (drive_train_imgs, drive_train_masks), (drive_test_imgs, drive_test_masks) = load_drive_dataset()
+    ph2_train_imgs, ph2_test_imgs, ph2_train_masks, ph2_test_masks = load_ph2_dataset()
 
-    # --- Load PH2 ---
-    train_imgs_ph2, test_imgs_ph2, train_masks_ph2, test_masks_ph2 = load_ph2_dataset()
+    print(f"[INFO] DRIVE train: {len(drive_train_imgs)} | PH2 train: {len(ph2_train_imgs)}")
 
-    # Align image/mask pairs to avoid mismatched counts
-    drive_train_imgs, drive_train_masks = align_pairs(drive_train_imgs, drive_train_masks)
-    drive_test_imgs, drive_test_masks = align_pairs(drive_test_imgs, drive_test_masks)
-    train_imgs_ph2, train_masks_ph2 = align_pairs(train_imgs_ph2, train_masks_ph2)
-    test_imgs_ph2, test_masks_ph2 = align_pairs(test_imgs_ph2, test_masks_ph2)
+    # --- Combine ---
+    train_imgs = drive_train_imgs + ph2_train_imgs
+    train_masks = drive_train_masks + ph2_train_masks
+    test_imgs = drive_test_imgs + ph2_test_imgs
+    test_masks = drive_test_masks + ph2_test_masks
 
-
-    # --- Combine both datasets ---
-    train_imgs = drive_train_imgs + train_imgs_ph2
-    train_masks = drive_train_masks + train_masks_ph2
-    test_imgs = drive_test_imgs + test_imgs_ph2
-    test_masks = drive_test_masks + test_masks_ph2
-
-    # --- Debug info (shows up in .out file) ---
-    print(f"[INFO] DRIVE train: {len(drive_train_imgs)} | PH2 train: {len(train_imgs_ph2)}")
+    # --- Debug info ---
     print(f"[INFO] Combined train: {len(train_imgs)} | Combined test: {len(test_imgs)}")
     print(f"[DEBUG] train_imgs: {len(train_imgs)}, train_masks: {len(train_masks)}")
     print(f"[DEBUG] test_imgs:  {len(test_imgs)}, test_masks:  {len(test_masks)}")
 
-    # Safety: drop extra samples if mismatch happens
+    # --- Ensure same lengths (safety) ---
     n = min(len(train_imgs), len(train_masks))
     train_imgs, train_masks = train_imgs[:n], train_masks[:n]
     n = min(len(test_imgs), len(test_masks))
     test_imgs, test_masks = test_imgs[:n], test_masks[:n]
 
-
-    # --- Create datasets ---
+    # --- Build datasets ---
     train_ds = SegmentationDataset(train_imgs, train_masks, t)
     test_ds = SegmentationDataset(test_imgs, test_masks, t)
 
-    # --- Return dataloaders ---
     return (
         torch.utils.data.DataLoader(train_ds, batch_size=batch_size, shuffle=True),
         torch.utils.data.DataLoader(test_ds, batch_size=batch_size, shuffle=False)
     )
+
 
