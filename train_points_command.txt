@@ -1,0 +1,1 @@
+python train_points.py --model unet --epochs 25 --batch-size 4 --img-size 256 --lr 1e-4 --loss bce --correct-points 10 --incorrect-points 5 --dataset-root "./PH2_Dataset_images" --output-dir "./results_points"
