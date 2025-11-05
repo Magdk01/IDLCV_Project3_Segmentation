@@ -85,15 +85,19 @@ def make_dataloaders(batch_size=4, img_size=(256, 256)):
     (drive_train_imgs, drive_train_masks), (drive_test_imgs, drive_test_masks) = load_drive_dataset()
     ph2_train_imgs, ph2_test_imgs, ph2_train_masks, ph2_test_masks = load_ph2_dataset()
 
-    print(f"[INFO] DRIVE train: {len(drive_train_imgs)} | PH2 train: {len(ph2_train_imgs)}")
+    # --- Use all 40 DRIVE images for training (optional) ---
+    # comment out these two lines if you only want 20
+    drive_train_imgs = drive_train_imgs + drive_test_imgs
+    drive_train_masks = drive_train_masks + drive_test_masks
+    drive_test_imgs, drive_test_masks = [], []  # no DRIVE in test set
 
-    # --- Combine datasets (include DRIVE!) ---
+    # --- Combine both datasets ---
     train_imgs = list(drive_train_imgs) + list(ph2_train_imgs)
     train_masks = list(drive_train_masks) + list(ph2_train_masks)
     test_imgs = list(drive_test_imgs) + list(ph2_test_imgs)
     test_masks = list(drive_test_masks) + list(ph2_test_masks)
 
-    # --- Debug info ---
+    print(f"[INFO] DRIVE train: {len(drive_train_imgs)} | PH2 train: {len(ph2_train_imgs)}")
     print(f"[INFO] Combined train: {len(train_imgs)} | Combined test: {len(test_imgs)}")
     print(f"[DEBUG] train_imgs: {len(train_imgs)}, train_masks: {len(train_masks)}")
     print(f"[DEBUG] test_imgs:  {len(test_imgs)}, test_masks:  {len(test_masks)}")
@@ -104,15 +108,11 @@ def make_dataloaders(batch_size=4, img_size=(256, 256)):
     n = min(len(test_imgs), len(test_masks))
     test_imgs, test_masks = test_imgs[:n], test_masks[:n]
 
-    # --- Create dataset objects ---
+    # --- Create datasets ---
     train_ds = SegmentationDataset(train_imgs, train_masks, t)
     test_ds = SegmentationDataset(test_imgs, test_masks, t)
 
-    # --- Return PyTorch dataloaders ---
     return (
         torch.utils.data.DataLoader(train_ds, batch_size=batch_size, shuffle=True),
         torch.utils.data.DataLoader(test_ds, batch_size=batch_size, shuffle=False)
     )
-
-
-
