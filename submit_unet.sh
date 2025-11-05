@@ -24,6 +24,6 @@ python3 train.py \
   --batch-size 2 \
   --img-size 256 \
   --lr 1e-4 \
-  --loss wbce \
+  --loss bce \
   --pos-weight 3.0 \
   --output-dir ./hpc_outputs

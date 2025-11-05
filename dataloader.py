@@ -83,9 +83,15 @@ def make_dataloaders(batch_size=4, img_size=(256, 256)):
     (drive_train_imgs, drive_train_masks), (drive_test_imgs, drive_test_masks) = load_drive_dataset()
     ph2_train_imgs, ph2_test_imgs, ph2_train_masks, ph2_test_masks = load_ph2_dataset()
 
-    drive_train_imgs = drive_train_imgs + drive_test_imgs
-    drive_train_masks = drive_train_masks + drive_test_masks
-    drive_test_imgs, drive_test_masks = [], []
+    # Move 12 samples from test -> train
+    num_move = 12
+
+    drive_train_imgs = drive_train_imgs + drive_test_imgs[:num_move]
+    drive_train_masks = drive_train_masks + drive_test_masks[:num_move]
+
+    # Keep the remaining 8 for testing
+    drive_test_imgs = drive_test_imgs[num_move:]
+    drive_test_masks = drive_test_masks[num_move:]
 
     train_imgs = list(drive_train_imgs) + list(ph2_train_imgs)
     train_masks = list(drive_train_masks) + list(ph2_train_masks)
