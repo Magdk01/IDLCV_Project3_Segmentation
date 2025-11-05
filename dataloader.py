@@ -73,10 +73,8 @@ def align_pairs(imgs, masks):
     masks = [p for p in masks if normalize_name(p) in valid]
     return sorted(imgs), sorted(masks)
 
-
-
 def make_dataloaders(batch_size=4, img_size=(256, 256)):
-    from torchvision import transforms
+    """Create combined dataloaders for DRIVE + PH2 datasets."""
     t = transforms.Compose([
         transforms.Resize(img_size),
         transforms.ToTensor()
@@ -88,30 +86,32 @@ def make_dataloaders(batch_size=4, img_size=(256, 256)):
 
     print(f"[INFO] DRIVE train: {len(drive_train_imgs)} | PH2 train: {len(ph2_train_imgs)}")
 
-    # --- Combine ---
-    train_imgs = drive_train_imgs + ph2_train_imgs
-    train_masks = drive_train_masks + ph2_train_masks
-    test_imgs = drive_test_imgs + ph2_test_imgs
-    test_masks = drive_test_masks + ph2_test_masks
+    # --- Combine datasets (include DRIVE!) ---
+    train_imgs = list(drive_train_imgs) + list(ph2_train_imgs)
+    train_masks = list(drive_train_masks) + list(ph2_train_masks)
+    test_imgs = list(drive_test_imgs) + list(ph2_test_imgs)
+    test_masks = list(drive_test_masks) + list(ph2_test_masks)
 
     # --- Debug info ---
     print(f"[INFO] Combined train: {len(train_imgs)} | Combined test: {len(test_imgs)}")
     print(f"[DEBUG] train_imgs: {len(train_imgs)}, train_masks: {len(train_masks)}")
     print(f"[DEBUG] test_imgs:  {len(test_imgs)}, test_masks:  {len(test_masks)}")
 
-    # --- Ensure same lengths (safety) ---
+    # --- Ensure matching lengths ---
     n = min(len(train_imgs), len(train_masks))
     train_imgs, train_masks = train_imgs[:n], train_masks[:n]
     n = min(len(test_imgs), len(test_masks))
     test_imgs, test_masks = test_imgs[:n], test_masks[:n]
 
-    # --- Build datasets ---
+    # --- Create dataset objects ---
     train_ds = SegmentationDataset(train_imgs, train_masks, t)
     test_ds = SegmentationDataset(test_imgs, test_masks, t)
 
+    # --- Return PyTorch dataloaders ---
     return (
         torch.utils.data.DataLoader(train_ds, batch_size=batch_size, shuffle=True),
         torch.utils.data.DataLoader(test_ds, batch_size=batch_size, shuffle=False)
     )
+
 
 
