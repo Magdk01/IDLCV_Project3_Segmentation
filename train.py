@@ -25,7 +25,7 @@ def train_model(args):
     if args.model == "simple":
         model = SimpleEncoderDecoder(in_channels=3, out_channels=1).to(device)
     else:
-        model = UNet(in_channels=3, n_channels=1).to(device)
+        model = UNet(n_channels=3, n_classes=1).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
@@ -86,24 +86,36 @@ def train_model(args):
         epoch_losses.append(avg_loss)
         print(f"Epoch {epoch+1}/{args.epochs} - Loss: {avg_loss:.4f}")
 
-        # --- Evaluation phase per epoch ---
+                # --- Evaluation phase per epoch ---
         model.eval()
-        metrics_sum = {k: 0 for k in epoch_metrics.keys()}
+        metrics_sum = {k: 0.0 for k in epoch_metrics.keys()}
+        num_batches = 0
+
         with torch.no_grad():
             for imgs, masks in test_loader:
                 imgs, masks = imgs.to(device), masks.to(device)
                 preds = torch.sigmoid(model(imgs))
-                metrics_sum["dice"] += dice_coeff(preds, masks)
-                metrics_sum["iou"] += iou(preds, masks)
-                metrics_sum["acc"] += accuracy(preds, masks)
-                metrics_sum["sens"] += sensitivity(preds, masks)
-                metrics_sum["spec"] += specificity(preds, masks)
 
-        # Average metrics per epoch
+                # Compute batch metrics (your metric functions handle thresholding)
+                batch_metrics = {
+                    "dice": dice_coeff(preds, masks).item(),
+                    "iou": iou(preds, masks).item(),
+                    "acc": accuracy(preds, masks).item(),
+                    "sens": sensitivity(preds, masks).item(),
+                    "spec": specificity(preds, masks).item(),
+                }
+
+                for k in metrics_sum:
+                    metrics_sum[k] += batch_metrics[k]
+
+                num_batches += 1
+
+        # --- Average metrics correctly across batches ---
         for k in metrics_sum:
-            value = metrics_sum[k] / len(test_loader)
+            value = metrics_sum[k] / num_batches
             epoch_metrics[k].append(value)
             print(f"  {k}: {value:.4f}")
+
 
     # --- Save checkpoint each epoch ---
     torch.save(model.state_dict(),
@@ -111,9 +123,9 @@ def train_model(args):
     # --- Save metric curves ---
     plt.figure(figsize=(8, 6))
     for k, values in epoch_metrics.items():
-        # Convert torch tensors to floats if necessary
-        values_cpu = [v.item() if torch.is_tensor(v) else v for v in values]
-        plt.plot(range(1, args.epochs + 1), values_cpu, marker='o', label=k)
+        clean_values = [v for v in values if v is not None]
+        plt.plot(range(1, args.epochs + 1), clean_values, marker='o', label=k)
+
     plt.title(f"Metrics per Epoch ({args.model}, {args.loss})")
     plt.xlabel("Epoch")
     plt.ylabel("Score")
@@ -129,7 +141,6 @@ def train_model(args):
     with open(results_path, "w") as f:
         for k, v in {k: epoch_metrics[k][-1] for k in epoch_metrics}.items():
             f.write(f"{k}: {v:.4f}\n")
-    print(f"[INFO] Metrics saved → {results_path}")
 
 
 if __name__ == "__main__":

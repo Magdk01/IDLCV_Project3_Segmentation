@@ -1,11 +1,11 @@
 #!/bin/bash
-#BSUB -q gpuv100
+#BSUB -q c02516
 #BSUB -J segmentation_models_unet
 #BSUB -n 4
 #BSUB -R "rusage[mem=10GB]"
 #BSUB -R "span[hosts=1]"
 #BSUB -gpu "num=1:mode=exclusive_process"
-#BSUB -W 6:00
+#BSUB -W 2:00
 #BSUB -o hpc_outputs/unet_%J.out
 #BSUB -e hpc_outputs/unet_%J.err
 #BSUB -B
@@ -24,6 +24,6 @@ python3 train.py \
   --batch-size 2 \
   --img-size 256 \
   --lr 1e-4 \
-  --loss bce \
+  --loss wbce \
   --pos-weight 3.0 \
   --output-dir ./hpc_outputs
