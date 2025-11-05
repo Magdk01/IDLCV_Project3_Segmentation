@@ -105,15 +105,25 @@ def train_model(args):
             epoch_metrics[k].append(value)
             print(f"  {k}: {value:.4f}")
 
+    model.eval()
     # --- Save checkpoint each epoch ---
     torch.save(model.state_dict(),
                 os.path.join(args.output_dir, f"{args.model}_model.pth"))
     # --- Save metric curves ---
     plt.figure(figsize=(8, 6))
     for k, values in epoch_metrics.items():
-        # Convert torch tensors to floats if necessary
-        values_cpu = [v.item() if torch.is_tensor(v) else v for v in values]
-        plt.plot(range(1, args.epochs + 1), values_cpu, marker='o', label=k)
+        # Safely convert all GPU tensors to CPU floats before plotting
+        clean_values = []
+        for v in values:
+            if torch.is_tensor(v):
+                v = v.detach().cpu()
+                if v.numel() == 1:
+                    v = v.item()
+                else:
+                    v = v.mean().item()
+            clean_values.append(v)
+    plt.plot(range(1, args.epochs + 1), clean_values, marker='o', label=k)
+
     plt.title(f"Metrics per Epoch ({args.model}, {args.loss})")
     plt.xlabel("Epoch")
     plt.ylabel("Score")
@@ -129,7 +139,6 @@ def train_model(args):
     with open(results_path, "w") as f:
         for k, v in {k: epoch_metrics[k][-1] for k in epoch_metrics}.items():
             f.write(f"{k}: {v:.4f}\n")
-    print(f"[INFO] Metrics saved → {results_path}")
 
 
 if __name__ == "__main__":
