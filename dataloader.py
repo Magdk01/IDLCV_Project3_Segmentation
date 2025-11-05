@@ -40,7 +40,7 @@ def load_ph2_dataset(root="/dtu/datasets1/02516/PH2_Dataset_images"):
     imgs, masks = [], []
     for case_dir in sorted(glob.glob(os.path.join(root, "IMD*"))):
         cid = os.path.basename(case_dir)
-        img = os.path.join(case_dir, f"{cid}_Dermoscopic_Image/{cid}_Dermoscopic_Image.bmp")
+        img = os.path.join(case_dir, f"{cid}_Dermoscopic_Image/{cid}.bmp")
         mask = os.path.join(case_dir, f"{cid}_lesion/{cid}_lesion.bmp")
         if os.path.exists(img) and os.path.exists(mask):
             imgs.append(img)
