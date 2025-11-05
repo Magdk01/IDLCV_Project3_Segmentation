@@ -105,10 +105,9 @@ def train_model(args):
             epoch_metrics[k].append(value)
             print(f"  {k}: {value:.4f}")
 
-        # --- Save checkpoint each epoch ---
-        torch.save(model.state_dict(),
-                   os.path.join(args.output_dir, f"{args.model}_epoch{epoch+1}.pth"))
-
+    # --- Save checkpoint each epoch ---
+    torch.save(model.state_dict(),
+                os.path.join(args.output_dir, f"{args.model}_model.pth"))
     # --- Save metric curves ---
     plt.figure(figsize=(8, 6))
     for k, values in epoch_metrics.items():
@@ -122,7 +121,6 @@ def train_model(args):
     plot_path = os.path.join(args.output_dir, f"metrics_curve_{args.model}_{args.loss}.png")
     plt.savefig(plot_path)
     plt.close()
-    print(f"[INFO] Saved metrics plot → {plot_path}")
 
     # --- Save final averaged metrics ---
     results_path = os.path.join(args.output_dir, f"results_{args.model}_{args.loss}.txt")
