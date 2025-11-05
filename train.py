@@ -28,14 +28,50 @@ def train_model(args):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
-    # Loss function
+    # -----------------------------
+# Loss function selection
+# -----------------------------
     if args.loss == "bce":
         criterion = nn.BCEWithLogitsLoss()
+
     elif args.loss == "wbce":
         pos_weight = torch.tensor([args.pos_weight]).to(device)
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+
+    elif args.loss == "dice":
+        # Soft Dice loss
+        def dice_loss(pred, target, smooth=1.0):
+            pred = torch.sigmoid(pred)
+            intersection = (pred * target).sum(dim=(2, 3))
+            union = pred.sum(dim=(2, 3)) + target.sum(dim=(2, 3))
+            dice = (2. * intersection + smooth) / (union + smooth)
+            return 1 - dice.mean()
+        criterion = dice_loss
+
+    elif args.loss == "bce_dice":
+        # Combined BCE + Dice loss
+        bce = nn.BCEWithLogitsLoss()
+        def bce_dice_loss(pred, target):
+            pred_sigmoid = torch.sigmoid(pred)
+            intersection = (pred_sigmoid * target).sum(dim=(2, 3))
+            union = pred_sigmoid.sum(dim=(2, 3)) + target.sum(dim=(2, 3))
+            dice = (2. * intersection + 1.0) / (union + 1.0)
+            return 0.5 * bce(pred, target) + 0.5 * (1 - dice.mean())
+        criterion = bce_dice_loss
+
+    elif args.loss == "focal":
+        # Focal loss
+        def focal_loss(pred, target, alpha=0.8, gamma=2.0):
+            bce = nn.BCEWithLogitsLoss(reduction='none')(pred, target)
+            pt = torch.exp(-bce)
+            focal = alpha * (1 - pt) ** gamma * bce
+            return focal.mean()
+        criterion = focal_loss
     else:
-        raise ValueError("Loss must be 'bce' or 'wbce'")
+        raise ValueError(
+            "Loss must be one of: 'bce', 'wbce', 'dice', 'bce_dice', or 'focal'"
+    )
+
 
     os.makedirs(args.output_dir, exist_ok=True)
 
