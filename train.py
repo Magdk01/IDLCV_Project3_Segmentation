@@ -81,10 +81,14 @@ def train_model(args):
         metrics[k] /= len(test_loader)
         print(f"{k}: {metrics[k]:.4f}")
 
-    # Save metrics
-    with open(os.path.join(args.output_dir, "results.txt"), "w") as f:
+    # --- Save metrics to a model-specific file ---
+    results_filename = f"results_{args.model}.txt"
+    results_path = os.path.join(args.output_dir, results_filename)
+
+    with open(results_path, "w") as f:
         for k, v in metrics.items():
             f.write(f"{k}: {v:.4f}\n")
+
 
 
 if __name__ == "__main__":

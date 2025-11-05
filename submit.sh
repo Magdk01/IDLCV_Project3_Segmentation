@@ -20,9 +20,11 @@ source ~/02516/IDLCV_Project3_Segmentation/venv/bin/activate
 # Move to your working directory
 cd ~/02516/IDLCV_Project3_Segmentation
 
-echo "[INFO] Starting SimpleEncoder training..."
+# --- Model selection: unet or simple ---
+MODEL=${1:-unet}
+
 python3 train.py \
-  --model simple \
+  --model $MODEL \
   --epochs 25 \
   --batch-size 2 \
   --img-size 256 \
@@ -30,26 +32,3 @@ python3 train.py \
   --loss wbce \
   --pos-weight 3.0 \
   --output-dir ./hpc_outputs
-
-# rename result file (if it exists)
-if [ -f "./hpc_outputs/results.txt" ]; then
-    mv ./hpc_outputs/results.txt ./hpc_outputs/results_simple.txt
-fi
-
-echo "[INFO] Starting UNet training..."
-python3 train.py \
-  --model unet \
-  --epochs 25 \
-  --batch-size 2 \
-  --img-size 256 \
-  --lr 1e-4 \
-  --loss wbce \
-  --pos-weight 3.0 \
-  --output-dir ./hpc_outputs
-
-# rename result file (if it exists)
-if [ -f "./hpc_outputs/results.txt" ]; then
-    mv ./hpc_outputs/results.txt ./hpc_outputs/results_unet.txt
-fi
-
-echo "[INFO] Both models finished successfully!"
