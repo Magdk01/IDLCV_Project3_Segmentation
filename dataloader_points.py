@@ -32,7 +32,7 @@ def collate_points_fn(batch):
     return images, masks, points_list, labels_list
 
 
-def mask_to_points(mask_path, correct_points=5, incorrect_points=5):
+def mask_to_points(mask_path, correct_points=5, incorrect_points=5, method = 'random'):
     """
     Take a mask path and return two numpy arrays of shape (num_points, 2)
     each containing the (x, y) coordinates of points sampled from black and white regions of the mask respectively.
@@ -41,6 +41,7 @@ def mask_to_points(mask_path, correct_points=5, incorrect_points=5):
         mask_path: Path to the mask image
         correct_points: Number of points to sample from white regions (positive class)
         incorrect_points: Number of points to sample from black regions (negative class)
+        method: Method to sample points ('random' or 'intensity')
 
     Returns:
         correct_points: Array of (x, y) coordinates from white regions
@@ -54,17 +55,17 @@ def mask_to_points(mask_path, correct_points=5, incorrect_points=5):
     if len(xs) == 0 or len(ys) == 0:
         return np.array([]), np.array([])  # No white pixels found
 
-    # Randomly select points from white pixels
-    num_white_points = correct_points
-    white_indices = np.random.choice(
-        len(xs), min(num_white_points, len(xs)), replace=False
-    )
-
-    # Randomly select points from black pixels
-    num_black_points = incorrect_points
-    num_black_points = min(num_black_points, len(xn))
-    black_indices = np.random.choice(len(xn), num_black_points, replace=False)
-
+    if method == 'random':
+        # Randomly select points from white pixels
+        num_white_points = correct_points
+        num_white_points = min(num_white_points, len(xs))
+        white_indices = np.random.choice(len(xs), num_white_points, replace=False)
+        # Randomly select points from black pixels
+        num_black_points = incorrect_points
+        num_black_points = min(num_black_points, len(xn))
+        black_indices = np.random.choice(len(xn), num_black_points, replace=False)
+    else:
+        pass
     # Combine the selected points
     incorrect_points_arr = np.array(list(zip(xn[black_indices], yn[black_indices])))
     correct_points_arr = np.array(list(zip(xs[white_indices], ys[white_indices])))
@@ -87,12 +88,14 @@ class PointSegmentationDataset(Dataset):
         transform=None,
         correct_points=10,
         incorrect_points=5,
+        method='random'
     ):
         self.image_paths = image_paths
         self.mask_paths = mask_paths
         self.transform = transform
         self.correct_points = correct_points
         self.incorrect_points = incorrect_points
+        self.method = method
 
     def __len__(self):
         return len(self.image_paths)
@@ -125,18 +128,36 @@ class PointSegmentationDataset(Dataset):
 
         correct_points = np.array([])
         incorrect_points = np.array([])
+        if self.method == 'random':
+            if len(xs) > 0 and len(ys) > 0:
+                # Deterministically select points from white pixels (same points each time for this image)
+                num_white_points = min(self.correct_points, len(xs))
+                white_indices = rng.choice(len(xs), num_white_points, replace=False)
+                correct_points = np.array(list(zip(xs[white_indices], ys[white_indices])))
 
-        if len(xs) > 0 and len(ys) > 0:
-            # Deterministically select points from white pixels (same points each time for this image)
-            num_white_points = min(self.correct_points, len(xs))
-            white_indices = rng.choice(len(xs), num_white_points, replace=False)
-            correct_points = np.array(list(zip(xs[white_indices], ys[white_indices])))
+            if len(xn) > 0 and len(yn) > 0:
+                # Deterministically select points from black pixels (same points each time for this image)
+                num_black_points = min(self.incorrect_points, len(xn))
+                black_indices = rng.choice(len(xn), num_black_points, replace=False)
+                incorrect_points = np.array(list(zip(xn[black_indices], yn[black_indices])))
+        else:
+            image_gray = np.array(Image.open(self.image_paths[idx]).convert("L"))
+            image_gray_flat_s = image_gray[ys,xs].flatten()
+            image_gray_flat_n = image_gray[yn,xn].flatten()
 
-        if len(xn) > 0 and len(yn) > 0:
-            # Deterministically select points from black pixels (same points each time for this image)
-            num_black_points = min(self.incorrect_points, len(xn))
-            black_indices = rng.choice(len(xn), num_black_points, replace=False)
-            incorrect_points = np.array(list(zip(xn[black_indices], yn[black_indices])))
+            positive = zip(xs, ys, image_gray_flat_s)
+            positive = sorted(positive, key=lambda x: x[2])
+
+            white_indices = [i for i in range(0, len(positive), max(1, len(positive)//(self.correct_points+2)))]
+            white_indices = white_indices[1:-1]
+            correct_points = np.array([[positive[0][i], positive[1][i]] for i in white_indices])
+
+            negative = zip(xn, yn, image_gray_flat_n)
+            negative = sorted(negative, key=lambda x: x[2])
+
+            black_indices = [i for i in range(0, len(negative), max(1, len(negative)//(self.incorrect_points+2)))]
+            black_indices = black_indices[1:-1]
+            incorrect_points = np.array([[negative[0][i], negative[1][i]] for i in black_indices])
 
         # Points are now in (x, y) format where x is column (0 to W-1) and y is row (0 to H-1)
         # Clip to valid range (already should be, but just to be safe)
@@ -219,6 +240,7 @@ def make_dataloaders(
     correct_points=10,
     incorrect_points=5,
     dataset_root=None,
+    method='random'
 ):
     """
     Create dataloaders for PH2 dataset with point-based sampling.
@@ -258,6 +280,7 @@ def make_dataloaders(
         t,
         correct_points=correct_points,
         incorrect_points=incorrect_points,
+        method='random'
     )
     test_ds = PointSegmentationDataset(
         ph2_test_imgs,
@@ -265,6 +288,7 @@ def make_dataloaders(
         t,
         correct_points=correct_points,
         incorrect_points=incorrect_points,
+        method='random'
     )
 
     print(f"[INFO] Created train dataset: {len(train_ds)} samples")

@@ -35,6 +35,7 @@ def train_model(args):
         correct_points=args.correct_points,
         incorrect_points=args.incorrect_points,
         dataset_root=dataset_root,
+        method=args.method
     )
 
     # --- Model ---
@@ -241,6 +242,14 @@ if __name__ == "__main__":
         type=str,
         default="data/PH2_Dataset_images",
         help="Override PH2 dataset root path (overrides env var if provided)",
+    )
+
+    parser.add_argument(
+        "--method",
+        type=str,
+        default="random",
+        choices=["random", "intensity"],
+        help="Point sampling method",
     )
 
     args = parser.parse_args()
