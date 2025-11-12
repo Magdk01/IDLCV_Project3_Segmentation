@@ -7,14 +7,20 @@ from tqdm import tqdm
 from models.unet import UNet
 from models.simple_encoder import SimpleEncoderDecoder
 from dataloader_points import make_dataloaders
-from loss_points import create_point_loss_function
+from point_loss import create_point_loss_function
 from metrics import dice_coeff, iou, accuracy, sensitivity, specificity
 import matplotlib.pyplot as plt
 
 
 def train_model(args):
     # --- Device setup ---
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
+    
     print(f"Using device: {device}")
 
     # --- Datasets ---
@@ -40,9 +46,11 @@ def train_model(args):
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     # --- Loss function ---
-    # Point-based loss: computes loss ONLY at annotated point locations
-    # Pure sparse supervision - no interpolation, no false information
-    criterion = create_point_loss_function(base_loss=args.loss)
+    # Point-level loss with image-level term:
+    # (1) Image-level: Encourages both fg/bg classes to appear somewhere confidently
+    # (2) Point-level: BCE loss at annotated point locations (sparse supervision)
+    # This helps prevent degenerate solutions with very sparse annotations
+    criterion = create_point_loss_function()
 
     os.makedirs(args.output_dir, exist_ok=True)
 
@@ -85,9 +93,9 @@ def train_model(args):
             points_list_device = [p.to(device) for p in points_list]
             labels_list_device = [l.to(device) for l in labels_list]
 
-            # Training loss: Point-based loss (computes loss ONLY at annotated point locations)
-            # Uses logits (not thresholded) for proper gradient flow during training
-            # This uses sparse supervision - only the points provide training signal
+            # Training loss: Point-level loss with image-level term
+            # - Point term: BCE at annotated point locations (sparse supervision)
+            # - Image term: Encourages both classes to appear somewhere in prediction
             loss = criterion(preds, points_list_device, labels_list_device)
             optimizer.zero_grad()
             loss.backward()
@@ -97,7 +105,7 @@ def train_model(args):
         avg_train_loss = total_loss / len(train_loader)
         epoch_train_losses.append(avg_train_loss)
         print(
-            f"Epoch {epoch+1}/{args.epochs} - Train Loss (point-based): {avg_train_loss:.4f}"
+            f"Epoch {epoch+1}/{args.epochs} - Train Loss (point + image-level): {avg_train_loss:.4f}"
         )
 
         # --- Evaluation phase per epoch ---
@@ -152,7 +160,7 @@ def train_model(args):
         range(1, args.epochs + 1),
         epoch_train_losses,
         marker="o",
-        label="Train Loss (point-based)",
+        label="Train Loss (point + image-level)",
     )
     plt.plot(
         range(1, args.epochs + 1),
@@ -231,7 +239,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dataset-root",
         type=str,
-        default=None,
+        default="data/PH2_Dataset_images",
         help="Override PH2 dataset root path (overrides env var if provided)",
     )
 
