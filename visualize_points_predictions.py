@@ -252,7 +252,7 @@ def main():
     parser.add_argument(
         "--checkpoint",
         type=str,
-        default=None,
+        default="results_points/unet_epoch20.pth",
         help="Path to checkpoint file (if not provided, uses last checkpoint from output-dir)",
     )
     parser.add_argument(
@@ -297,6 +297,13 @@ def main():
         default="visualization_points.png",
         help="Output path for visualization",
     )
+    parser.add_argument(
+        "--method",
+        type=str,
+        default="random",
+        choices=["random", "intensity"],
+        help="Point sampling method",
+    )
 
     args = parser.parse_args()
 
@@ -308,7 +315,7 @@ def main():
     if args.model == "simple":
         model = SimpleEncoderDecoder(in_channels=3, out_channels=1).to(device)
     else:
-        model = UNet(n_channels=3, n_classes=1).to(device)
+        model = UNet(n_channels=3, n_classes=1,dropout_rate=0.1).to(device)
 
     # Load checkpoint
     if args.checkpoint:
@@ -328,6 +335,7 @@ def main():
         correct_points=args.correct_points,
         incorrect_points=args.incorrect_points,
         dataset_root=args.dataset_root,
+        method=args.method,
     )
 
     # Visualize

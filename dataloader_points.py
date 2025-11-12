@@ -141,23 +141,31 @@ class PointSegmentationDataset(Dataset):
                 black_indices = rng.choice(len(xn), num_black_points, replace=False)
                 incorrect_points = np.array(list(zip(xn[black_indices], yn[black_indices])))
         else:
-            image_gray = np.array(Image.open(self.image_paths[idx]).convert("L"))
-            image_gray_flat_s = image_gray[ys,xs].flatten()
-            image_gray_flat_n = image_gray[yn,xn].flatten()
+            # Compute grayscale from transformed RGB tensor (aligned with mask)
+            image_gray = (image.mean(dim=0).numpy() * 255).astype(np.uint8)
 
-            positive = zip(xs, ys, image_gray_flat_s)
-            positive = sorted(positive, key=lambda x: x[2])
+            # Positive pixels (mask == 1)
+            image_gray_flat_s = image_gray[ys, xs].flatten() if len(xs) > 0 else np.array([])
+            image_gray_flat_n = image_gray[yn, xn].flatten() if len(xn) > 0 else np.array([])
 
-            white_indices = [i for i in range(0, len(positive), max(1, len(positive)//(self.correct_points+2)))]
-            white_indices = white_indices[1:-1]
-            correct_points = np.array([[positive[0][i], positive[1][i]] for i in white_indices])
+            # Sort by intensity
+            positive = sorted(zip(xs, ys, image_gray_flat_s), key=lambda x: x[2])
+            negative = sorted(zip(xn, yn, image_gray_flat_n), key=lambda x: x[2])
 
-            negative = zip(xn, yn, image_gray_flat_n)
-            negative = sorted(negative, key=lambda x: x[2])
+            # Helper function for evenly spaced points avoiding extremes
+            def evenly_spaced_middle_points(points, num):
+                if len(points) == 0:
+                    return np.array([])
+                if len(points) <= num + 2:
+                    # not enough points to exclude extremes safely
+                    return np.array([[p[0], p[1]] for p in points])
+                # sample indices between 1 and len(points)-2 (exclude extremes)
+                indices = np.linspace(1, len(points) - 2, num, dtype=int)
+                return np.array([[points[i][0], points[i][1]] for i in indices])
 
-            black_indices = [i for i in range(0, len(negative), max(1, len(negative)//(self.incorrect_points+2)))]
-            black_indices = black_indices[1:-1]
-            incorrect_points = np.array([[negative[0][i], negative[1][i]] for i in black_indices])
+            correct_points = evenly_spaced_middle_points(positive, self.correct_points)
+            incorrect_points = evenly_spaced_middle_points(negative, self.incorrect_points)
+
 
         # Points are now in (x, y) format where x is column (0 to W-1) and y is row (0 to H-1)
         # Clip to valid range (already should be, but just to be safe)
@@ -280,7 +288,7 @@ def make_dataloaders(
         t,
         correct_points=correct_points,
         incorrect_points=incorrect_points,
-        method='random'
+        method=method
     )
     test_ds = PointSegmentationDataset(
         ph2_test_imgs,
@@ -288,7 +296,7 @@ def make_dataloaders(
         t,
         correct_points=correct_points,
         incorrect_points=incorrect_points,
-        method='random'
+        method=method
     )
 
     print(f"[INFO] Created train dataset: {len(train_ds)} samples")
