@@ -41,7 +41,7 @@ def train_model(args):
     if args.model == "simple":
         model = SimpleEncoderDecoder(in_channels=3, out_channels=1).to(device)
     else:
-        model = UNet(n_channels=3, n_classes=1).to(device)
+        model = UNet(n_channels=3, n_classes=1, dropout_rate=0.5).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
