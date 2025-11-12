@@ -7,7 +7,7 @@ from tqdm import tqdm
 from models.unet import UNet
 from models.simple_encoder import SimpleEncoderDecoder
 from dataloader_points import make_dataloaders
-from loss_points import create_point_loss_function
+from point_loss import create_point_loss_function
 from metrics import dice_coeff, iou, accuracy, sensitivity, specificity
 import matplotlib.pyplot as plt
 
